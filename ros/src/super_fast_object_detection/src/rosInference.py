@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import ros_numpy
 import sensor_msgs.point_cloud2 as pc2
 from sensor_msgs.msg import PointCloud2
 from autoware_msgs.msg import DetectedObjectArray, DetectedObject
@@ -52,12 +53,18 @@ def euler_to_quaternion(yaw, pitch, roll):
 def on_scan(scan):
     start = timeit.default_timer()
     rospy.loginfo("Got scan")
-    gen = []
-    for p in pc2.read_points(scan, field_names = ("x", "y", "z", "intensity"), skip_nans=True):
-        gen.append(np.array([p[0], p[1], p[2], p[3]/100.0]))
-    gen_numpy = np.array(gen, dtype=np.float32)
-    print(configs.down_ratio)
-    front_lidar = get_filtered_lidar(gen_numpy, cnf.boundary)
+    pc = ros_numpy.numpify(scan)
+    gen = np.zeros((pc.shape[0], 4))
+    gen[:, 0] = pc['x']
+    gen[:, 1] = pc['y']
+    gen[:, 2] = pc['z']
+    #gen[:, 3] = pc['intensity'] / 100
+    gen[:, 3] = pc['i']
+    # gen = []
+    # for p in pc2.read_points(scan, field_names = ("x", "y", "z", "i"), skip_nans=True):
+    #     gen.append(np.array([p[0], p[1], p[2], p[3]/100.0]))
+    # gen_numpy = np.array(gen, dtype=np.float32)
+    front_lidar = get_filtered_lidar(gen, cnf.boundary)
     bev_map = makeBEVMap(front_lidar, cnf.boundary)
     bev_map = torch.from_numpy(bev_map)
 
@@ -87,7 +94,7 @@ def on_scan(scan):
 
                 obj.score = 0.9
                 obj.pose_reliable = True
-                
+
                 obj.space_frame = scan.header.frame_id
                 obj.label = class_name
                 obj.score = _score
@@ -99,7 +106,7 @@ def on_scan(scan):
                 obj.pose.orientation.y = qy
                 obj.pose.orientation.z = qz
                 obj.pose.orientation.w = qw
-                
+
                 obj.dimensions.x = l
                 obj.dimensions.y = w
                 obj.dimensions.z = _h
@@ -130,5 +137,6 @@ if __name__ == '__main__':
     print("Started Node")
     rospy.init_node('SuperFastObjectDetection', anonymous=True)
     pub = rospy.Publisher('detected_objects', DetectedObjectArray, queue_size=10)
-    rospy.Subscriber("velodyne_points", PointCloud2, on_scan)
+    rospy.Subscriber("kitti/velo/pointcloud", PointCloud2, on_scan)
+    #rospy.Subscriber("velodyne_points", PointCloud2, on_scan)
     rospy.spin()
