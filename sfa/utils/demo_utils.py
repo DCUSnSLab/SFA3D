@@ -62,7 +62,7 @@ def parse_demo_configs():
 
     configs.input_size = (608, 608)
     configs.hm_size = (152, 152)
-    configs.down_ratio = 4
+    configs.down_ratio = 3
     configs.max_objects = 50
 
     configs.imagenet_pretrained = False
